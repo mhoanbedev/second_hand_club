@@ -13,7 +13,7 @@ const generateToken = (id) => {
  
 router.post('/register', async (req, res, next) => { 
 
-    const { username, email, password, role, phoneNumber } = req.body;
+    const { username, email, password, role, phoneNumber, avatarUrl } = req.body;
     try {
         let user = await User.findOne({ email });
         if (user) {
@@ -24,7 +24,14 @@ router.post('/register', async (req, res, next) => {
             return res.status(400).json({ msg: 'Tên đăng nhập đã được sử dụng' });
         }
         
-        user = new User({ username, email, password, role, phoneNumber: phoneNumber || '' });
+        user = new User({
+            username,
+            email,
+            password,
+            role,
+            phoneNumber: phoneNumber || '',
+            avatarUrl: avatarUrl || ''  
+        });
         await user.save();
 
         const userResponse = {
@@ -33,6 +40,7 @@ router.post('/register', async (req, res, next) => {
             email: user.email,
             role: user.role,
             phoneNumber: user.phoneNumber, 
+            avatarUrl: user.avatarUrl,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt
         };
@@ -87,13 +95,50 @@ router.post('/login', async (req, res) => {
 });
 
 
-router.get('/me', protect, async (req, res) => {
+router.get('/me', protect, async (req, res, next) => {
     try {
         
         res.json(req.user); 
     } catch (error) {
         console.error(error.message);
         res.status(500).send('Lỗi Server');
+    }
+});
+router.put('/profile', protect, async (req, res, next) => {
+    try {
+        const user = await User.findById(req.user.id);
+
+        if (user) {
+            user.username = req.body.username || user.username;
+            user.phoneNumber = req.body.phoneNumber !== undefined ? req.body.phoneNumber : user.phoneNumber;
+            user.avatarUrl = req.body.avatarUrl !== undefined ? req.body.avatarUrl : user.avatarUrl;
+
+           
+            if (req.body.password) {
+                if (req.body.password.length < 6) {
+                    return res.status(400).json({ msg: 'Mật khẩu mới phải có ít nhất 6 ký tự.' });
+                }
+                user.password = req.body.password; 
+            }
+
+            const updatedUser = await user.save();
+
+   
+            res.json({
+                _id: updatedUser._id,
+                username: updatedUser.username,
+                email: updatedUser.email,
+                role: updatedUser.role,
+                phoneNumber: updatedUser.phoneNumber,
+                avatarUrl: updatedUser.avatarUrl,
+                updatedAt: updatedUser.updatedAt
+            });
+        } else {
+            res.status(404);  
+            throw new Error('Người dùng không tìm thấy');
+        }
+    } catch (error) {
+        next(error);  
     }
 });
 

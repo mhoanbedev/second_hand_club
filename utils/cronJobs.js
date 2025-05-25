@@ -31,7 +31,7 @@ const setupScheduledJobs = () => {
             const dueSoonRequests = await BorrowRequest.find({
                 status: 'borrowed',
                 expectedReturnDate: { $gte: tomorrow, $lt: dayAfterTomorrow }
-            }).populate('user', 'username email phoneNumber').populate('equipment', 'name imageUrl');
+            }).populate('user', 'username email phoneNumber avatarUrl').populate('equipment', 'name imageUrl');
 
             if (dueSoonRequests.length > 0) {
                 console.log(`[${new Date().toLocaleTimeString('vi-VN')}] Found ${dueSoonRequests.length} item(s) due soon.`);
@@ -57,7 +57,7 @@ const setupScheduledJobs = () => {
             const overdueItemsToUpdate = await BorrowRequest.find({
                 status: 'borrowed',
                 expectedReturnDate: { $lt: today }
-            }).populate('user', 'username email phoneNumber').populate('equipment', 'name imageUrl');
+            }).populate('user', 'username email phoneNumber avatarUrl').populate('equipment', 'name imageUrl');
 
             if (overdueItemsToUpdate.length > 0) {
                 console.log(`[${new Date().toLocaleTimeString('vi-VN')}] Found ${overdueItemsToUpdate.length} item(s) to mark as overdue.`);

@@ -123,7 +123,7 @@ const createBorrowRequest = async (req, res, next) => {
         
      
         const populatedRequest = await BorrowRequest.findById(savedRequest._id)
-            .populate('user', 'username email phoneNumber')
+            .populate('user', 'username email phoneNumber avatarUrl')
             .populate('equipment', 'name description imageUrl');
 
         res.status(201).json(populatedRequest);
@@ -141,7 +141,7 @@ const getMyBorrowHistory = async (req, res) => {
     try {
         const borrowRequests = await BorrowRequest.find({ user: req.user.id }) 
             .populate('equipment', 'name description status imageUrl')
-            .populate('user', 'username email phoneNumber')
+            .populate('user', 'username email phoneNumber avatarUrl')
             .sort({ createdAt: -1 });
         res.json(borrowRequests); 
     } catch (error) {
@@ -159,7 +159,7 @@ const getAllBorrowRequests = async (req, res) => {
     }
     try {
          const requestsData = await BorrowRequest.find(query)
-            .populate('user', 'username email role phoneNumber') 
+            .populate('user', 'username email role phoneNumber avatarUrl') 
             .populate('equipment', 'name imageUrl')
             .sort({ createdAt: -1 });
         res.json(requestsData);
@@ -172,7 +172,7 @@ const getAllBorrowRequests = async (req, res) => {
 const getBorrowRequestDetailsById = async (req, res) => {
     try {
         const request = await BorrowRequest.findById(req.params.requestId)
-            .populate('user', 'username email role phoneNumber') 
+            .populate('user', 'username email role phoneNumber avatarUrl') 
             .populate('equipment', 'name description totalQuantity availableQuantity status imageUrl');
         if (!request) {
             return res.status(404).json({ msg: 'Yêu cầu mượn không tìm thấy' });
@@ -197,7 +197,7 @@ const manageBorrowRequest = async (req, res) => {
     try {
         const request = await BorrowRequest.findById(requestId)
                             .populate('equipment', 'name availableQuantity imageUrl')  
-                            .populate('user', 'username email phoneNumber'); 
+                            .populate('user', 'username email phoneNumber avatarUrl'); 
 
         if (!request) {
             return res.status(404).json({ msg: 'Yêu cầu mượn không tìm thấy' });
@@ -289,7 +289,7 @@ const confirmBorrowedByAdmin = async (req, res, next) => {
 
  
         const populatedUpdatedRequest = await BorrowRequest.findById(request._id)
-            .populate('user', 'username email phoneNumber')
+            .populate('user', 'username email phoneNumber avatarUrl')
             .populate('equipment', 'name description imageUrl status totalQuantity availableQuantity');
 
         res.json(populatedUpdatedRequest);
@@ -346,7 +346,7 @@ const confirmReturnByAdmin = async (req, res, next) => {
         await request.save();
 
         const populatedUpdatedRequest = await BorrowRequest.findById(request._id)
-            .populate('user', 'username email phoneNumber')
+            .populate('user', 'username email phoneNumber avatarUrl')
             .populate('equipment', 'name description imageUrl status totalQuantity availableQuantity');
 
 
