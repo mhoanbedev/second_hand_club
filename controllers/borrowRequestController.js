@@ -123,8 +123,8 @@ const createBorrowRequest = async (req, res, next) => {
         
      
         const populatedRequest = await BorrowRequest.findById(savedRequest._id)
-            .populate('user', 'username email')
-            .populate('equipment', 'name description');
+            .populate('user', 'username email phoneNumber')
+            .populate('equipment', 'name description imageUrl');
 
         res.status(201).json(populatedRequest);
         
@@ -140,8 +140,8 @@ const createBorrowRequest = async (req, res, next) => {
 const getMyBorrowHistory = async (req, res) => {
     try {
         const borrowRequests = await BorrowRequest.find({ user: req.user.id }) 
-            .populate('equipment', 'name description status')
-            .populate('user', 'username email')
+            .populate('equipment', 'name description status imageUrl')
+            .populate('user', 'username email phoneNumber')
             .sort({ createdAt: -1 });
         res.json(borrowRequests); 
     } catch (error) {
@@ -159,8 +159,8 @@ const getAllBorrowRequests = async (req, res) => {
     }
     try {
          const requestsData = await BorrowRequest.find(query)
-            .populate('user', 'username email role') 
-            .populate('equipment', 'name')
+            .populate('user', 'username email role phoneNumber') 
+            .populate('equipment', 'name imageUrl')
             .sort({ createdAt: -1 });
         res.json(requestsData);
     } catch (error) {
@@ -172,8 +172,8 @@ const getAllBorrowRequests = async (req, res) => {
 const getBorrowRequestDetailsById = async (req, res) => {
     try {
         const request = await BorrowRequest.findById(req.params.requestId)
-            .populate('user', 'username email role') 
-            .populate('equipment', 'name description totalQuantity availableQuantity status');
+            .populate('user', 'username email role phoneNumber') 
+            .populate('equipment', 'name description totalQuantity availableQuantity status imageUrl');
         if (!request) {
             return res.status(404).json({ msg: 'Yêu cầu mượn không tìm thấy' });
         }
@@ -196,8 +196,8 @@ const manageBorrowRequest = async (req, res) => {
     }
     try {
         const request = await BorrowRequest.findById(requestId)
-                            .populate('equipment', 'name availableQuantity')  
-                            .populate('user', 'username email'); 
+                            .populate('equipment', 'name availableQuantity imageUrl')  
+                            .populate('user', 'username email phoneNumber'); 
 
         if (!request) {
             return res.status(404).json({ msg: 'Yêu cầu mượn không tìm thấy' });
@@ -250,11 +250,15 @@ const manageBorrowRequest = async (req, res) => {
         res.status(500).json({ msg: 'Lỗi Server khi xử lý yêu cầu' });
     }
 };
-const confirmBorrowedByAdmin = async (req, res) => {
+const confirmBorrowedByAdmin = async (req, res, next) => { 
     const { requestId } = req.params;
+    const { adminNotes } = req.body; 
 
     try {
-        const request = await BorrowRequest.findById(requestId).populate('equipment'); 
+        let request = await BorrowRequest.findById(requestId)
+            .populate('equipment', 'name availableQuantity status imageUrl totalQuantity') 
+            .populate('user', 'username email phoneNumber'); 
+
         if (!request) {
             return res.status(404).json({ msg: 'Yêu cầu mượn không tìm thấy' });
         }
@@ -263,87 +267,109 @@ const confirmBorrowedByAdmin = async (req, res) => {
             return res.status(400).json({ msg: `Chỉ có thể xác nhận mượn cho yêu cầu đã được 'approved'. Trạng thái hiện tại: ${request.status}` });
         }
 
-        const equipment = request.equipment; 
+        const equipment = request.equipment;
 
-       
+        if (equipment.status !== 'available') {
+             return res.status(400).json({ msg: `Thiết bị '${equipment.name}' hiện không có sẵn (${equipment.status}). Không thể cho mượn.` });
+        }
         if (equipment.availableQuantity < request.quantityBorrowed) {
             console.error(`CRITICAL: Not enough available quantity for equipment ${equipment.name} (ID: ${equipment._id}) when confirming borrow for request ${request._id}. Available: ${equipment.availableQuantity}, Requested: ${request.quantityBorrowed}`);
-            return res.status(400).json({ msg: `Lỗi hệ thống: Không đủ số lượng thiết bị "${equipment.name}" khi xác nhận mượn. Vui lòng kiểm tra lại.` });
+            return res.status(400).json({ msg: `Không đủ số lượng thiết bị "${equipment.name}" khi xác nhận mượn. Yêu cầu ${request.quantityBorrowed}, còn lại ${equipment.availableQuantity}. Vui lòng kiểm tra lại.` });
         }
 
-      
         equipment.availableQuantity -= request.quantityBorrowed;
-        await equipment.save(); 
+        await equipment.save();
 
-        
         request.status = 'borrowed';
+        if (adminNotes) {
+            request.adminNotes = request.adminNotes ? `${request.adminNotes}. ${adminNotes}` : adminNotes;
+        }
         
-        const updatedRequest = await request.save(); 
+        await request.save(); 
 
-     
-        res.json(updatedRequest);
+ 
+        const populatedUpdatedRequest = await BorrowRequest.findById(request._id)
+            .populate('user', 'username email phoneNumber')
+            .populate('equipment', 'name description imageUrl status totalQuantity availableQuantity');
+
+        res.json(populatedUpdatedRequest);
 
     } catch (error) {
-        console.error("Error in confirmBorrowedByAdmin:", error.message, error.stack);
-        if (error.name === 'ValidationError' && error.path === 'availableQuantity') {
-            return res.status(500).json({ msg: 'Lỗi khi cập nhật số lượng thiết bị: Số lượng có sẵn không thể âm. Vui lòng kiểm tra dữ liệu.'});
-        }
-        if (error.kind === 'ObjectId') {
-            return res.status(404).json({ msg: 'ID yêu cầu không hợp lệ' });
-        }
-        res.status(500).json({ msg: 'Lỗi Server khi xác nhận mượn thiết bị' });
+        next(error);
     }
 };
 
-const confirmReturnByAdmin = async (req, res) => {
+const confirmReturnByAdmin = async (req, res, next) => {
     const { requestId } = req.params;
+   
+    const { adminNotes, newEquipmentStatus } = req.body;
 
     try {
-        const request = await BorrowRequest.findById(requestId).populate('equipment'); 
+        let request = await BorrowRequest.findById(requestId)
+            .populate('equipment')
+            .populate('user', 'username email phoneNumber');
+
         if (!request) {
             return res.status(404).json({ msg: 'Yêu cầu mượn không tìm thấy' });
         }
 
-        
         if (request.status !== 'borrowed' && request.status !== 'overdue') {
             return res.status(400).json({ msg: `Thiết bị chưa được mượn, đã được trả, hoặc yêu cầu đã bị hủy/từ chối. Trạng thái hiện tại: ${request.status}` });
         }
 
-        const equipment = request.equipment; 
+        const equipment = request.equipment;
 
-       
         equipment.availableQuantity += request.quantityBorrowed;
-       
+
         if (equipment.availableQuantity > equipment.totalQuantity) {
-            equipment.availableQuantity = equipment.totalQuantity; 
+            equipment.availableQuantity = equipment.totalQuantity;
             console.warn(`Warning: Available quantity for ${equipment.name} exceeded total quantity after return. Reset to total.`);
         }
-        await equipment.save(); 
+
+     
+        if (newEquipmentStatus && ['available', 'maintenance', 'broken', 'unavailable'].includes(newEquipmentStatus)) {
+            equipment.status = newEquipmentStatus;
+            console.log(`Equipment ${equipment.name} status updated to: ${newEquipmentStatus} upon return.`);
+        } else if (newEquipmentStatus) {
+            console.warn(`Invalid newEquipmentStatus '${newEquipmentStatus}' provided. Equipment status not changed.`);
+           
+        }
+         
+        await equipment.save();
+
         request.status = 'returned';
         request.actualReturnDate = new Date();
+        if (adminNotes) {
+            request.adminNotes = request.adminNotes ? `${request.adminNotes}. ${adminNotes}` : adminNotes;
+        }
         
-        const updatedRequest = await request.save(); 
-        const studentUser = await User.findById(request.user);
+        await request.save();
+
+        const populatedUpdatedRequest = await BorrowRequest.findById(request._id)
+            .populate('user', 'username email phoneNumber')
+            .populate('equipment', 'name description imageUrl status totalQuantity availableQuantity');
+
+
+       
+        const studentUser = populatedUpdatedRequest.user;
         if (studentUser && studentUser.email) {
             sendEmail({
                 to: studentUser.email,
-                subject: `Xác nhận đã trả thiết bị "${equipment.name}"`,
+                subject: `Xác nhận đã trả thiết bị "${populatedUpdatedRequest.equipment.name}"`,
                 html: `<p>Chào ${studentUser.username},</p>
-                       <p>Chúng tôi xác nhận bạn đã trả lại thiết bị <strong>${equipment.name}</strong> (số lượng: ${request.quantityBorrowed}) vào ngày ${request.actualReturnDate.toLocaleDateString('vi-VN')}.</p>
+                       <p>Chúng tôi xác nhận bạn đã trả lại thiết bị <strong>${populatedUpdatedRequest.equipment.name}</strong> (số lượng: ${populatedUpdatedRequest.quantityBorrowed}) vào ngày ${new Date(populatedUpdatedRequest.actualReturnDate).toLocaleDateString('vi-VN')}.</p>
+                       ${populatedUpdatedRequest.equipment.imageUrl ? `<p><img src="${populatedUpdatedRequest.equipment.imageUrl}" alt="${populatedUpdatedRequest.equipment.name}" style="max-width:100px;"/></p>` : ''}
                        <p>Cảm ơn bạn đã sử dụng dịch vụ của CLB!</p>
                        <p>Trân trọng,<br>${process.env.EMAIL_FROM_NAME || 'Ban Quản Lý CLB'}</p>`,
-                text: `Xác nhận bạn đã trả thiết bị "${equipment.name}" (số lượng: ${request.quantityBorrowed}) vào ngày ${request.actualReturnDate.toLocaleDateString('vi-VN')}. Cảm ơn bạn!`
+                text: `Xác nhận bạn đã trả thiết bị "${populatedUpdatedRequest.equipment.name}" (số lượng: ${populatedUpdatedRequest.quantityBorrowed}) vào ngày ${new Date(populatedUpdatedRequest.actualReturnDate).toLocaleDateString('vi-VN')}. Cảm ơn bạn!`
             }).catch(err => console.error("Failed to send return confirmation email:", err));
         }
 
-        res.json(updatedRequest);
+        res.json(populatedUpdatedRequest);
 
     } catch (error) {
-        console.error("Error in confirmReturnByAdmin:", error.message, error.stack);
-        if (error.kind === 'ObjectId') {
-            return res.status(404).json({ msg: 'ID yêu cầu không hợp lệ' });
-        }
-        res.status(500).json({ msg: 'Lỗi Server khi xác nhận trả thiết bị' });
+        
+        next(error);
     }
 };
 

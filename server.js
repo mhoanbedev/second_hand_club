@@ -5,13 +5,15 @@ const userRoutes = require('./routes/userRoutes');
 const equipmentRoutes = require('./routes/equipmentRoutes');
 const borrowRequestRoutes = require('./routes/borrowRequestRoutes');
 const setupScheduledJobs = require('./utils/cronJobs'); 
+const cors = require('cors');
+
 setupScheduledJobs();
 dotenv.config();
 connectDB();
 
 const app = express();
 
-
+app.use(cors());
 app.use(express.json());
  
 app.get('/', (req, res) => {

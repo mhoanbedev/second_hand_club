@@ -30,6 +30,11 @@ const userSchema = new mongoose.Schema({
         enum: ['student', 'admin'],
         default: 'student'
     },
+    phoneNumber: {
+        type: String,
+        trim: true,
+        default: ''
+    }
 }, {
     timestamps: true
 });

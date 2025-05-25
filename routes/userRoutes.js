@@ -11,8 +11,9 @@ const generateToken = (id) => {
     });
 };
  
-router.post('/register', async (req, res) => {
-    const { username, email, password, role } = req.body;
+router.post('/register', async (req, res, next) => { 
+
+    const { username, email, password, role, phoneNumber } = req.body;
     try {
         let user = await User.findOne({ email });
         if (user) {
@@ -22,27 +23,28 @@ router.post('/register', async (req, res) => {
         if (user) {
             return res.status(400).json({ msg: 'Tên đăng nhập đã được sử dụng' });
         }
-        user = new User({ username, email, password, role });
+        
+        user = new User({ username, email, password, role, phoneNumber: phoneNumber || '' });
         await user.save();
+
         const userResponse = {
             _id: user._id,
             username: user.username,
             email: user.email,
             role: user.role,
+            phoneNumber: user.phoneNumber, 
             createdAt: user.createdAt,
             updatedAt: user.updatedAt
         };
         
-        res.status(201).json({ msg: 'Người dùng đã được đăng ký thành công', user: userResponse });
-
+        res.status(201).json({ 
+            msg: 'Người dùng đã được đăng ký thành công', 
+            user: userResponse,
+            token: generateToken(user._id) 
+        });
 
     } catch (err) {
-        console.error(err.message);
-        if (err.name === 'ValidationError') {
-            const messages = Object.values(err.errors).map(val => val.message);
-            return res.status(400).json({ msg: messages.join(', ') });
-        }
-        res.status(500).send('Lỗi Server');
+        next(err);
     }
 });
 

@@ -2,12 +2,14 @@ const Equipment = require('../models/Equipment');
 const BorrowRequest = require('../models/BorrowRequest');
 
  
-const createEquipment = async (req, res) => {
-    const { name, description, totalQuantity, status } = req.body;
+const createEquipment = async (req, res, next) => { 
+
+    const { name, description, totalQuantity, status, imageUrl } = req.body;
 
     try {
         const equipmentExists = await Equipment.findOne({ name });
         if (equipmentExists) {
+          
             return res.status(400).json({ msg: 'Thiết bị với tên này đã tồn tại' });
         }
 
@@ -15,19 +17,14 @@ const createEquipment = async (req, res) => {
             name,
             description,
             totalQuantity,
-            
-            status: status || 'available'
+            status: status || 'available',
+            imageUrl: imageUrl || ''
         });
 
         const createdEquipment = await equipment.save();
-        res.status(201).json(createdEquipment);
+        res.status(201).json(createdEquipment); 
     } catch (error) {
-        console.error(error.message);
-        if (error.name === 'ValidationError') {
-            const messages = Object.values(error.errors).map(val => val.message);
-            return res.status(400).json({ msg: messages.join(', ') });
-        }
-        res.status(500).json({ msg: 'Lỗi Server' });
+        next(error);
     }
 };
 
@@ -57,8 +54,8 @@ const getEquipmentById = async (req, res) => {
     }
 };
 
-const updateEquipment = async (req, res) => {
-    const { name, description, totalQuantity, availableQuantity, status } = req.body;
+const updateEquipment = async (req, res, next) => { 
+    const { name, description, totalQuantity, availableQuantity, status, imageUrl } = req.body;
 
     try {
         const equipment = await Equipment.findById(req.params.id);
@@ -66,32 +63,22 @@ const updateEquipment = async (req, res) => {
             return res.status(404).json({ msg: 'Thiết bị không tìm thấy' });
         }
 
-        
         if (name && name !== equipment.name) {
-            const equipmentExists = await Equipment.findOne({ name });
-            if (equipmentExists) {
-                return res.status(400).json({ msg: 'Tên thiết bị này đã được sử dụng bởi một thiết bị khác' });
-            }
+            
         }
 
         equipment.name = name || equipment.name;
-        equipment.description = description !== undefined ? description : equipment.description;  
+        equipment.description = description !== undefined ? description : equipment.description;
         if (totalQuantity !== undefined) equipment.totalQuantity = totalQuantity;
         if (availableQuantity !== undefined) equipment.availableQuantity = availableQuantity;
         equipment.status = status || equipment.status;
+        if (imageUrl !== undefined) equipment.imageUrl = imageUrl;
+
 
         const updatedEquipment = await equipment.save();
         res.json(updatedEquipment);
     } catch (error) {
-        console.error(error.message);
-        if (error.name === 'ValidationError') {
-            const messages = Object.values(error.errors).map(val => val.message);
-            return res.status(400).json({ msg: messages.join(', ') });
-        }
-        if (error.kind === 'ObjectId') {
-            return res.status(404).json({ msg: 'Thiết bị không tìm thấy (ID không hợp lệ)' });
-        }
-        res.status(500).json({ msg: 'Lỗi Server' });
+        next(error);
     }
 };
 const deleteEquipment = async (req, res) => {
@@ -209,6 +196,7 @@ const getMostBorrowedEquipment = async (req, res) => {
                 equipmentId: '$_id',
                 equipmentName: '$equipmentDetails.name',
                 description: '$equipmentDetails.description',
+                imageUrl: '$equipmentDetails.imageUrl',
                 totalTimesBorrowed: 1,
                 totalQuantityItemsBorrowed: 1
             }

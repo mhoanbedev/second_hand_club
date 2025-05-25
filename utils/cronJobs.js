@@ -31,7 +31,7 @@ const setupScheduledJobs = () => {
             const dueSoonRequests = await BorrowRequest.find({
                 status: 'borrowed',
                 expectedReturnDate: { $gte: tomorrow, $lt: dayAfterTomorrow }
-            }).populate('user', 'username email').populate('equipment', 'name');
+            }).populate('user', 'username email phoneNumber').populate('equipment', 'name imageUrl');
 
             if (dueSoonRequests.length > 0) {
                 console.log(`[${new Date().toLocaleTimeString('vi-VN')}] Found ${dueSoonRequests.length} item(s) due soon.`);
@@ -43,6 +43,7 @@ const setupScheduledJobs = () => {
                             subject: `[Nhắc nhở] Thiết bị "${request.equipment.name}" sắp đến hạn trả`,
                             html: `<p>Chào ${request.user.username},</p>
                                    <p>Thiết bị <strong>${request.equipment.name}</strong> (số lượng: ${request.quantityBorrowed}) bạn mượn sẽ đến hạn trả vào ngày <strong>${new Date(request.expectedReturnDate).toLocaleDateString('vi-VN')}</strong>.</p>
+                                   ${equipment.imageUrl ? `<p><img src="${equipment.imageUrl}" alt="${equipment.name}" style="max-width: 150px; height: auto;" /></p>` : ''}
                                    <p>Vui lòng sắp xếp thời gian để trả thiết bị đúng hạn tại phòng quản lý.</p>
                                    <p>Trân trọng,<br>${process.env.EMAIL_FROM_NAME || 'Ban Quản Lý CLB'}</p>`,
                             text: `Thiết bị "${request.equipment.name}" (số lượng: ${request.quantityBorrowed}) bạn mượn sắp đến hạn trả vào ngày ${new Date(request.expectedReturnDate).toLocaleDateString('vi-VN')}. Vui lòng trả đúng hạn.`
@@ -56,7 +57,7 @@ const setupScheduledJobs = () => {
             const overdueItemsToUpdate = await BorrowRequest.find({
                 status: 'borrowed',
                 expectedReturnDate: { $lt: today }
-            }).populate('user', 'username email').populate('equipment', 'name');
+            }).populate('user', 'username email phoneNumber').populate('equipment', 'name imageUrl');
 
             if (overdueItemsToUpdate.length > 0) {
                 console.log(`[${new Date().toLocaleTimeString('vi-VN')}] Found ${overdueItemsToUpdate.length} item(s) to mark as overdue.`);
