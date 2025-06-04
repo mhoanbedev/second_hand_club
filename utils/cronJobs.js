@@ -106,9 +106,9 @@ const setupScheduledJobs = () => {
         }
     });
     console.log(`Cron job scheduled. Rule: Every 5 minutes (at second 0), Timezone: Asia/Ho_Chi_Minh. Next invocations:`);
-    job.nextInvocations(5).forEach(function(d) { 
-        console.log(' - ', d.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }));
-    });
+    // job.nextInvocations(5).forEach(function(d) { 
+    //     console.log(' - ', d.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    // });
 };
 
 module.exports = setupScheduledJobs;
