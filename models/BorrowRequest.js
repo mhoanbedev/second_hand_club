@@ -42,6 +42,14 @@ const borrowRequestSchema = new mongoose.Schema({
         type: String,
         trim: true,
         default: ''
+    },
+    dueSoonNotified: {
+        type: Boolean,
+        default: false  
+    },
+    overdueNotified: {
+        type: Boolean,
+        default: false  
     }
 }, {
     timestamps: true
